@@ -34,7 +34,7 @@ void arenaReset(Arena *a);
 void arenaDUmp(Arena *a);
 
 // Function hash table
-void hashtableInit(Arena *a, HashTable *ht, size_t size);
+void hashTableInit(Arena *a, HashTable *ht, size_t size);
 void hashTableProcessWord(Arena *a, HashTable *ht, const char *word);
 void displayTrending(Arena *a, HashTable *ht);
 

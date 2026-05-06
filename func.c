@@ -63,3 +63,23 @@ void arenaDUmp(Arena *a){
         printf("\n");
     }
 }
+
+void hashTableInit(Arena *a, HashTable *ht, size_t size){
+    ht->size = size;
+    ht->tableOffset = arenaAlloc(a, size * sizeof(int));;
+
+    if (ht->tableOffset == -1){
+        return;
+    }
+    
+
+    int* tableArray = (int*) arenaAlloc(a, ht->tableOffset);
+
+    for (size_t i = 0; i < size; i++){
+        tableArray[i] = -1;
+    }
+}
+
+void hashTableProcessWord(Arena *a, HashTable *ht, const char *word){
+    
+}
