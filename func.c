@@ -15,19 +15,18 @@ void arenaInit(Arena *a, size_t size){
 }
 
 int arenaAlloc(Arena *a, size_t size){
-    if (a->offset + size >= a->capacity){
-        printf('[WARNING] => Memory tidak cukup\n');
-        return;
+    if (a->offset + size > a->capacity){
+        printf("[WARNING] => Memory tidak cukup\n");
+        return -1;
     }
     
     size_t offsetTime = a->offset;
-    offsetTime += size;
+    a->offset += size;
     return offsetTime;
 }
 
-void arenaGet(Arena *a, size_t offset){
-    if (a->offset < 0) return NULL;
-
+void* arenaGet(Arena *a, size_t offset){
+    if (offset > a->offset) return NULL;
     return (void*)(a->buffer + offset);
 }
 
@@ -35,20 +34,20 @@ void arenaReset(Arena *a){
     a->offset = 0;
 }
 
-void arenaDUmp(Arena *a){
+void arenaDump(Arena *a){
     const int bytesPerRow = 8;
 
-    printf('=== VISUALISASI ARENA ===\n');
-    printf('Arena Dump (Capacity = %zu, offset = %zu)\n\n', a->capacity, a->offset);
+    printf("=== VISUALISASI ARENA ===\n");
+    printf("Arena Dump (Capacity = %zu, offset = %zu)\n\n", a->capacity, a->offset);
 
-    for (size_t i = 0; i < a->capacity - 1; i++){
+    for (size_t i = 0; i < a->capacity; i++){
         if (i % bytesPerRow == 0){
-            printf('%04zu', i);
+            printf("%04zu", i);
         }
 
         if (i == a->offset){
             printf("| ");
-        } else if (a < a->offset){
+        } else if (i < a->offset){
             printf("# ");
         } else {
             printf(". ");
@@ -66,14 +65,14 @@ void arenaDUmp(Arena *a){
 
 void hashTableInit(Arena *a, HashTable *ht, size_t size){
     ht->size = size;
-    ht->tableOffset = arenaAlloc(a, size * sizeof(int));;
+    ht->tableOffset = arenaAlloc(a, size * sizeof(int));
 
     if (ht->tableOffset == -1){
         return;
     }
     
 
-    int* tableArray = (int*) arenaAlloc(a, ht->tableOffset);
+    int* tableArray = (int*) arenaGet(a, ht->tableOffset);
 
     for (size_t i = 0; i < size; i++){
         tableArray[i] = -1;
@@ -81,13 +80,32 @@ void hashTableInit(Arena *a, HashTable *ht, size_t size){
 }
 
 void hashTableProcessWord(Arena *a, HashTable *ht, const char *word){
+    unsigned long hashWord = hash_djb2(word);
+    int index = hashWord % ht->size;
 
+    int* tableArray = (int*)arenaGet(a, ht->tableOffset);
+    int currentOffset = tableArray[index];
+
+    while (currentOffset != -1)
+    {
+        NodeWord* currentNode = (NodeWord*)arenaGet(a, currentOffset);
+        char* nodeWord = (char*)arenaGet(a, currentNode->wordOffset);
+        
+        if (strcmp(nodeWord, word) == 0)
+        {
+            currentNode->nextOffset++;
+            return;
+        }
+        
+        currentOffset = currentNode->nextOffset;
+    }
+    
 }
 
 unsigned long hash_djb2(const char *str){
     unsigned long hash = 5381;
     int c;
-    
+
     while ((c = *str++)){
         hash = ((hash << 5) + hash) + c;
     }
