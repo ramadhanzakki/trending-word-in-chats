@@ -1,5 +1,6 @@
 #include "header.h"
 #include <stdio.h>
+#include <string.h>
 
 static unsigned char global_buffer[ARENA_MAX_SIZE];
 
@@ -8,7 +9,7 @@ void arenaInit(Arena *a, size_t size){
         printf("[WARNING] => Size terlalu besar\n");
         return;
     }
-    
+
     a->buffer = global_buffer;
     a->capacity = size;
     a->offset = 0;
@@ -19,14 +20,18 @@ int arenaAlloc(Arena *a, size_t size){
         printf("[WARNING] => Memory tidak cukup\n");
         return -1;
     }
-    
-    size_t offsetTime = a->offset;
+
+    size_t oldOffset = a->offset;
     a->offset += size;
-    return offsetTime;
+
+    return oldOffset;
 }
 
 void* arenaGet(Arena *a, size_t offset){
-    if (offset > a->offset) return NULL;
+    if (offset > a->offset){
+        return NULL;
+    }
+
     return (void*)(a->buffer + offset);
 }
 
@@ -38,77 +43,127 @@ void arenaDump(Arena *a){
     const int bytesPerRow = 8;
 
     printf("=== VISUALISASI ARENA ===\n");
-    printf("Arena Dump (Capacity = %zu, offset = %zu)\n\n", a->capacity, a->offset);
+    printf("Capacity = %zu | Offset = %zu\n\n",
+           a->capacity,
+           a->offset);
 
     for (size_t i = 0; i < a->capacity; i++){
+
         if (i % bytesPerRow == 0){
-            printf("%04zu", i);
+            printf("%04zu : ", i);
         }
 
-        if (i == a->offset){
-            printf("| ");
-        } else if (i < a->offset){
+        if (i < a->offset){
             printf("# ");
         } else {
             printf(". ");
         }
-        
+
         if ((i + 1) % bytesPerRow == 0){
             printf("\n");
         }
     }
-    
-    if (a->capacity % bytesPerRow != 0){
-        printf("\n");
-    }
+
+    printf("\n");
 }
 
 void hashTableInit(Arena *a, HashTable *ht, size_t size){
     ht->size = size;
+
     ht->tableOffset = arenaAlloc(a, size * sizeof(int));
 
-    if (ht->tableOffset == -1){
-        return;
-    }
-    
-
-    int* tableArray = (int*) arenaGet(a, ht->tableOffset);
+    int* table = (int*)arenaGet(a, ht->tableOffset);
 
     for (size_t i = 0; i < size; i++){
-        tableArray[i] = -1;
+        table[i] = -1;
     }
-}
-
-void hashTableProcessWord(Arena *a, HashTable *ht, const char *word){
-    unsigned long hashWord = hash_djb2(word);
-    int index = hashWord % ht->size;
-
-    int* tableArray = (int*)arenaGet(a, ht->tableOffset);
-    int currentOffset = tableArray[index];
-
-    while (currentOffset != -1)
-    {
-        NodeWord* currentNode = (NodeWord*)arenaGet(a, currentOffset);
-        char* nodeWord = (char*)arenaGet(a, currentNode->wordOffset);
-        
-        if (strcmp(nodeWord, word) == 0)
-        {
-            currentNode->nextOffset++;
-            return;
-        }
-        
-        currentOffset = currentNode->nextOffset;
-    }
-    
 }
 
 unsigned long hash_djb2(const char *str){
     unsigned long hash = 5381;
+
     int c;
 
     while ((c = *str++)){
         hash = ((hash << 5) + hash) + c;
     }
-    
+
     return hash;
+}
+
+void hashTableProcessWord(Arena *a, HashTable *ht, const char *word){
+
+    unsigned long hash = hash_djb2(word);
+
+    int index = hash % ht->size;
+
+    int* table = (int*)arenaGet(a, ht->tableOffset);
+
+    int currentOffset = table[index];
+
+    // cek apakah kata sudah ada
+    while (currentOffset != -1){
+
+        NodeWord* currentNode =
+            (NodeWord*)arenaGet(a, currentOffset);
+
+        char* existingWord =
+            (char*)arenaGet(a, currentNode->wordOffset);
+
+        if (strcmp(existingWord, word) == 0){
+
+            currentNode->count++;
+
+            return;
+        }
+
+        currentOffset = currentNode->nextOffset;
+    }
+
+    // simpan string
+    int wordOffset = arenaAlloc(a, strlen(word) + 1);
+
+    char* storedWord = (char*)arenaGet(a, wordOffset);
+
+    strcpy(storedWord, word);
+
+    // buat node baru
+    int newNodeOffset = arenaAlloc(a, sizeof(NodeWord));
+
+    NodeWord* newNode =
+        (NodeWord*)arenaGet(a, newNodeOffset);
+
+    newNode->wordOffset = wordOffset;
+    newNode->count = 1;
+
+    // linked list
+    newNode->nextOffset = table[index];
+
+    table[index] = newNodeOffset;
+}
+
+void displayTrending(Arena *a, HashTable *ht){
+
+    int* table = (int*)arenaGet(a, ht->tableOffset);
+
+    for (int i = 0; i < ht->size; i++){
+
+        int currentOffset = table[i];
+
+        while (currentOffset != -1){
+
+            NodeWord* node =
+                (NodeWord*)arenaGet(a, currentOffset);
+
+            char* word =
+                (char*)arenaGet(a, node->wordOffset);
+
+            printf("Bucket[%d] -> %s (%d)\n",
+                   i,
+                   word,
+                   node->count);
+
+            currentOffset = node->nextOffset;
+        }
+    }
 }
