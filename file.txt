@@ -1,0 +1,1 @@
+Algoritma djb2 adalah fungsi hashing string non-kriptografik yang sangat cepat, efisien, dan sederhana, diciptakan oleh Daniel Bernstein. Algoritma ini sering digunakan untuk implementasi hash table karena mampu menghasilkan distribusi nilai hash yang baik dengan tabrakan (collision) rendah

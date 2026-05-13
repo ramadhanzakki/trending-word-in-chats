@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 
-#define ARENA_MAX_SIZE 286
+#define ARENA_MAX_SIZE 3200
 
 typedef struct {
     unsigned char *buffer;
@@ -33,6 +33,12 @@ void arenaDump(Arena *a);
 void hashTableInit(Arena *a, HashTable *ht, size_t size);
 unsigned long hash_djb2(const char *str);
 void hashTableProcessWord(Arena *a, HashTable *ht, const char *word);
-void displayTrending(Arena *a, HashTable *ht);
+void displayHashTable(Arena *a, HashTable *ht);
+
+// File & Thrending Functions
+void processFile(Arena *a, HashTable *ht, const char *filename);
+void processSentence(Arena *a, HashTable *ht, const char *sentence);
+void displayTop10(Arena *a, HashTable *ht);
+void countWord(Arena *arena, HashTable *ht);
 
 #endif

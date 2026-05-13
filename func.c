@@ -1,6 +1,7 @@
 #include "header.h"
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 static unsigned char global_buffer[ARENA_MAX_SIZE];
 
@@ -28,7 +29,7 @@ int arenaAlloc(Arena *a, size_t size){
 }
 
 void* arenaGet(Arena *a, size_t offset){
-    if (offset > a->offset){
+    if (offset >= a->offset){
         return NULL;
     }
 
@@ -40,31 +41,30 @@ void arenaReset(Arena *a){
 }
 
 void arenaDump(Arena *a){
-    const int bytesPerRow = 8;
-
     printf("=== VISUALISASI ARENA ===\n");
-    printf("Capacity = %zu | Offset = %zu\n\n",
-           a->capacity,
-           a->offset);
+    printf("Kapasitas = %zu | Offset = %zu\n\n",
+            a->capacity,
+            a->offset);
 
-    for (size_t i = 0; i < a->capacity; i++){
+    double percentage = ((double)a->offset/a->capacity) * 100.0;
+    int box = 20;
+    int filledBox = (int)((percentage / 100.0) * box);
 
-        if (i % bytesPerRow == 0){
-            printf("%04zu : ", i);
-        }
+    if (filledBox > box){
+        filledBox = box;
+    }
 
-        if (i < a->offset){
-            printf("# ");
-        } else {
-            printf(". ");
-        }
+    printf("Memory : [");
 
-        if ((i + 1) % bytesPerRow == 0){
-            printf("\n");
+    for (size_t i = 0; i < box; i++){
+        if (i < filledBox){
+            printf("#");
+        }else {
+            printf(".");
         }
     }
 
-    printf("\n");
+    printf("] %.2f%%\n\n", percentage);
 }
 
 void hashTableInit(Arena *a, HashTable *ht, size_t size){
@@ -94,76 +94,168 @@ unsigned long hash_djb2(const char *str){
 void hashTableProcessWord(Arena *a, HashTable *ht, const char *word){
 
     unsigned long hash = hash_djb2(word);
-
     int index = hash % ht->size;
-
     int* table = (int*)arenaGet(a, ht->tableOffset);
-
     int currentOffset = table[index];
 
     // cek apakah kata sudah ada
     while (currentOffset != -1){
-
-        NodeWord* currentNode =
-            (NodeWord*)arenaGet(a, currentOffset);
-
-        char* existingWord =
-            (char*)arenaGet(a, currentNode->wordOffset);
+        NodeWord* currentNode = (NodeWord*)arenaGet(a, currentOffset);
+        char* existingWord = (char*)arenaGet(a, currentNode->wordOffset);
 
         if (strcmp(existingWord, word) == 0){
-
             currentNode->count++;
-
             return;
         }
-
         currentOffset = currentNode->nextOffset;
     }
 
     // simpan string
     int wordOffset = arenaAlloc(a, strlen(word) + 1);
-
     char* storedWord = (char*)arenaGet(a, wordOffset);
-
     strcpy(storedWord, word);
 
     // buat node baru
     int newNodeOffset = arenaAlloc(a, sizeof(NodeWord));
-
-    NodeWord* newNode =
-        (NodeWord*)arenaGet(a, newNodeOffset);
+    NodeWord* newNode = (NodeWord*)arenaGet(a, newNodeOffset);
 
     newNode->wordOffset = wordOffset;
     newNode->count = 1;
 
     // linked list
     newNode->nextOffset = table[index];
-
     table[index] = newNodeOffset;
 }
 
-void displayTrending(Arena *a, HashTable *ht){
-
+void displayHashTable(Arena *a, HashTable *ht){
     int* table = (int*)arenaGet(a, ht->tableOffset);
 
     for (int i = 0; i < ht->size; i++){
-
         int currentOffset = table[i];
+        printf("Bucket[%d]", i);
 
         while (currentOffset != -1){
-
             NodeWord* node =
                 (NodeWord*)arenaGet(a, currentOffset);
 
-            char* word =
-                (char*)arenaGet(a, node->wordOffset);
+            char* word = (char*)arenaGet(a, node->wordOffset);
 
-            printf("Bucket[%d] -> %s (%d)\n",
-                   i,
-                   word,
-                   node->count);
+            printf(" -> %s (%d)",
+                    word,
+                    node->count
+                );
 
             currentOffset = node->nextOffset;
         }
+
+        printf("\n");
     }
 }
+
+void processSentence(Arena *a, HashTable *ht, const char *sentence) {
+    char wordBuf[128];
+    int wordLen = 0;
+    
+    for (int i = 0; sentence[i] != '\0'; i++) {
+        int c = sentence[i];
+        if (isalnum(c)) {
+            if (wordLen < 127) {
+                wordBuf[wordLen++] = tolower(c);
+            }
+        } else {
+            if (wordLen > 0) {
+                wordBuf[wordLen] = '\0';
+                hashTableProcessWord(a, ht, wordBuf);
+            }
+            wordLen = 0;
+        }
+    }
+    
+    if (wordLen > 0) {
+        wordBuf[wordLen] = '\0';
+        hashTableProcessWord(a, ht, wordBuf);
+    }
+}
+
+void processFile(Arena *a, HashTable *ht, const char *filename){
+    FILE *file = fopen(filename, "r");
+
+    if (!file){
+        printf("[ERROR] => File tidak bisa dibuka\n");
+        return;
+    }
+    
+    char wordBuf[128];
+    int wordLen = 0;
+    int totalWords = 0;
+    int c;
+
+    printf("[INFO] => Membaca file\n");
+
+    while ((c = fgetc(file)) != EOF){
+        if (isalnum(c)){
+            if (wordLen < 127){
+                wordBuf[wordLen++] = tolower(c);
+            }
+        } else {
+            if (wordLen >= 1){
+                wordBuf[wordLen] = '\0';
+                hashTableProcessWord(a, ht, wordBuf);
+                totalWords++;
+            }
+            wordLen = 0;
+        }
+    }
+
+    printf("[INFO] => Berhasil membaca file\n");
+    printf("[INFO] Total kata pada file = %d\n", totalWords);
+
+    fclose(file);
+}
+
+void displayTop10(Arena *a, HashTable *ht) {
+    NodeWord *top10[10];
+
+    for (int i = 0; i < 10; i++){
+        top10[i] = NULL;
+    }
+    
+    int *table = (int *)arenaGet(a, ht->tableOffset);
+
+    if (table == NULL)
+    {
+        printf("[WARNING] : Tidak ada data yang dapat ditampilkan\n");
+        return;
+    }
+
+    for (int i = 0; i < ht->size; i++) {
+        int currentOffset = table[i];
+
+        while (currentOffset != -1){
+            NodeWord *node = (NodeWord*)arenaGet(a,currentOffset);
+        
+            for (int j = 0; j < 10; j++){
+                if (top10[j] == NULL || node->count > top10[j]->count){
+                    for (int k = 0; k > j; k--){
+                        top10[k] = top10[k-1];
+                    }
+                    top10[j] = node;
+                    break;
+                }
+            }
+            currentOffset = node->nextOffset;
+        }
+    }
+
+    if (top10[0] == NULL){
+        printf("[WARNING] : Belum ada data yang tersimpan\n");
+    } else {
+        for (int i = 0; i < 10; i++){
+            if (top10[i] != NULL){
+                char *word = (char*)arenaGet(a,top10[i]->wordOffset);
+                printf("%d. %s (%d)\n", i + 1, word, top10[i]->count);
+            }
+        }
+    }
+}
+
