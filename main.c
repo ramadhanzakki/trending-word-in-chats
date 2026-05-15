@@ -1,6 +1,7 @@
 #include "header.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 
 int main() {
     Arena arena;
@@ -9,23 +10,11 @@ int main() {
     arenaInit(&arena, ARENA_MAX_SIZE);
     hashTableInit(&arena, &ht, 10);
 
-    // const char *dummyChats[] = {
-    //     "struktur", "data", "zakki", "nadin", "universitas negeri malang", 
-    //     "struktur", "kuliah", "firza", "tugas", "nadin", 
-    //     "elshifa", "nadin", "data", "praktikum", "kuliah",
-    //     "tugas", "struktur", "data", "nadin", "firza", "elshifa"
-    // }; int jumlahDummy = sizeof(dummyChats) / sizeof(dummyChats[0]);
-
-    // for(int i = 0; i < jumlahDummy; i++) {
-    //     hashTableProcessWord(&arena, &ht, dummyChats[i]);
-    // }
-    // printf("\n[INFO] %d kata dummy berhasil dimuat ke memori!\n", jumlahDummy);
-
     int choice;
     char inputWord[100];
     char inputFile[100];
 
-    while(1) {
+    while(true) {
         printf("\n=== MENU TRENDING CHAT ===\n");
         printf("1. Masukkan kata\n");
         printf("2. Import chats from csv\n");
