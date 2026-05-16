@@ -22,6 +22,7 @@ int main() {
         printf("4. Tampilkan visualisasi arena\n");
         printf("5. Reset arena\n");
         printf("6. Tampilkan Hash Table\n");
+        printf("7. Cari kata\n");
         printf("0. Keluar\n");
         printf("Pilih menu: ");
         
@@ -74,6 +75,14 @@ int main() {
             case 6:
                 printf("\n=== Hash Table ===\n\n");
                 displayHashTable(&arena, &ht);
+                break;
+
+            case 7:
+                printf("\n=== Cari Kata ===\n\n");
+                printf("Masukan Kata: ");
+                fgets(inputWord, sizeof(inputWord), stdin);
+                inputWord[strcspn(inputWord, "\n")] = 0;
+                searchWord(&arena, &ht, inputWord);
                 break;
                 
             case 0:
