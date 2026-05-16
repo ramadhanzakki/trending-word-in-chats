@@ -40,5 +40,6 @@ void processFile(Arena *a, HashTable *ht, const char *filename);
 void processSentence(Arena *a, HashTable *ht, const char *sentence);
 void displayTop10(Arena *a, HashTable *ht);
 void countWord(Arena *arena, HashTable *ht);
+void searchWord(Arena *arena, HashTable *ht, const char *sentence);
 
 #endif
