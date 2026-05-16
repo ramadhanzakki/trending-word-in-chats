@@ -135,15 +135,10 @@ void displayHashTable(Arena *a, HashTable *ht){
         printf("Bucket[%d]", i);
 
         while (currentOffset != -1){
-            NodeWord* node =
-                (NodeWord*)arenaGet(a, currentOffset);
-
+            NodeWord* node = (NodeWord*)arenaGet(a, currentOffset);
             char* word = (char*)arenaGet(a, node->wordOffset);
 
-            printf(" -> %s (%d)",
-                    word,
-                    node->count
-                );
+            printf(" -> %s (%d)", word, node->count);
 
             currentOffset = node->nextOffset;
         }
@@ -260,7 +255,7 @@ void displayTop10(Arena *a, HashTable *ht) {
 }
 
 void searchWord(Arena *arena, HashTable *ht, const char *sentence){
-    if (!sentence){
+    if (sentence = ""){
         printf("[WARNING] : Kamu belum mengisi kolom pencarian\n");
         return;
     }
@@ -287,5 +282,28 @@ void searchWord(Arena *arena, HashTable *ht, const char *sentence){
         wordBuf[wordLen] = '\0';
     }
     
-    printf("Normalize: %s\n", wordBuf);
+    unsigned long hash = hash_djb2(wordBuf);
+    int index = hash % ht->size;
+
+    int *table = (int*)arenaGet(arena, ht->tableOffset);
+    int currentOffset = table[index];
+
+    while (currentOffset != -1){
+        NodeWord *node = (NodeWord*)arenaGet(arena, currentOffset);
+        char *word = (char*)arenaGet(arena, node->wordOffset);
+
+        if (strcmp(word, wordBuf) == 0){
+            printf("Berhasil menemukan kata \"%s\" pada table ke-%d dengan jumlah kata %d kata\n",
+                word,
+                index,
+                node->count
+            );
+            return;
+        }
+        
+        currentOffset = node->nextOffset;
+    }
+
+    printf("[WARNING] : Kata tidak ditemukan\n");
+    
 }
